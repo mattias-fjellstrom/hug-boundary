@@ -1,0 +1,89 @@
+disable_mlock = true
+
+%{ if is_ingress ~}
+hcp_boundary_cluster_id = "${hcp_boundary_cluster_id}"
+%{ endif ~}
+
+listener "tcp" {
+  address = "0.0.0.0:9202"
+  purpose = "proxy"
+}
+
+events {
+  audit_enabled        = ${audit_enabled}
+  observations_enabled = ${observations_enabled}
+  sysevents_enabled    = ${sysevents_enabled}
+
+  %{ if audit_enabled ~}
+  sink {
+    name        = "audit-sink"
+    type        = "file"
+    description = "Audit events logged to a file"
+    event_types = ["audit"]
+    format      = "cloudevents-json"
+
+    audit_config {
+      audit_filter_overrides {
+        sensitive = "redact"
+        secret    = "redact"
+      }
+    }
+    
+    file {
+      path      = "/var/log/boundary"
+      file_name = "audit.ndjson"
+    }
+  }
+  %{ endif ~}
+
+  %{ if observations_enabled ~}
+  sink {
+    name        = "observations-sink"
+    type        = "file"
+    description = "Observation events logged to a file"
+    event_types = ["observation"]
+    format      = "cloudevents-json"
+    
+    file {
+      path      = "/var/log/boundary"
+      file_name = "observations.ndjson"
+    }
+  }
+  %{ endif ~}
+
+  %{ if sysevents_enabled ~}
+  sink {
+    name        = "sysevents-sink"
+    type        = "file"
+    description = "System events sent to a file"
+    event_types = ["system"]
+    format      = "cloudevents-json"
+    
+    file {
+      path      = "/var/log/boundary"
+      file_name = "system.ndjson"
+    }
+  }
+  %{ endif ~}
+}
+
+worker {
+  public_addr                           = "IP"
+
+  %{ if !is_ingress ~}
+  initial_upstreams                     = [
+    %{ for addr in initial_upstreams ~}
+    "${addr}",
+    %{ endfor ~}
+  ]
+  %{ endif ~}
+  auth_storage_path                     = "/etc/boundary.d/worker"
+  recording_storage_path                = "/tmp/session-recordings"
+  controller_generated_activation_token = "${controller_generated_activation_token}"
+  
+  tags {
+    %{ for key, value in tags ~}
+    ${key} = "${value}"
+    %{ endfor ~}
+  }
+}

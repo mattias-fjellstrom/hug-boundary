@@ -1,0 +1,35 @@
+terraform {
+  required_providers {
+    archive = {
+      source  = "hashicorp/archive"
+      version = "2.4.2"
+    }
+
+    aws = {
+      source  = "hashicorp/aws"
+      version = "5.42.0"
+    }
+
+    boundary = {
+      source  = "hashicorp/boundary"
+      version = "1.1.14"
+    }
+
+    tfe = {
+      source  = "hashicorp/tfe"
+      version = "0.53.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.aws_region
+}
+
+provider "boundary" {
+  addr                   = data.tfe_outputs.platform.values.boundary_cluster.cluster_url
+  auth_method_login_name = data.tfe_outputs.platform.values.boundary_cluster.username
+  auth_method_password   = data.tfe_outputs.platform.values.boundary_cluster.password
+}
+
+provider "tfe" {}
